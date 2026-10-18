@@ -9,7 +9,7 @@ local localPlayer = Players.LocalPlayer
 while not localPlayer do task.wait() localPlayer = Players.LocalPlayer end
 
 -- CONFIG
-local FIREBASE_URL = "https://zeno-finder-default-rtdb.firebaseio.com/"
+local FIREBASE_URL = "https://zeno-finder-default-rtdb.europe-west1.firebasedatabase.app/"
 local FIREBASE_TOKEN = "ZENO_SECURE_9xK2mP7q"
 local HUB_URL = "https://raw.githubusercontent.com/ZENOHUBPAID/loader.lua/refs/heads/main/HUB_PRIVE.txt" -- METS ICI TON VRAI HUB
 
