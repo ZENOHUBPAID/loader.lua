@@ -1,0 +1,143 @@
+-- ZENO LOADER DEBUG
+local Players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
+local localPlayer = Players.LocalPlayer
+while not localPlayer do task.wait() localPlayer = Players.LocalPlayer end
+
+local FIREBASE_URL = "https://zeno-finder-default-rtdb.europe-west1.firebasedatabase.app/"
+local HUB_URL = "https://raw.githubusercontent.com/ZENOHUBPAID/loader.lua/refs/heads/main/HUB_PRIVE.txt"
+
+local function httpRequest(url)
+    print("[ZENO DEBUG] Requesting: "..url)
+    local ok, res = pcall(function()
+        if syn and syn.request then 
+            print("[ZENO DEBUG] Using syn.request")
+            local r = syn.request({Url=url,Method="GET"})
+            return r.Body or r.body
+        elseif http and http.request then 
+            print("[ZENO DEBUG] Using http.request")
+            local r = http.request({Url=url,Method="GET"})
+            return r.Body or r.body
+        elseif request then 
+            print("[ZENO DEBUG] Using request")
+            local r = request({Url=url,Method="GET"})
+            return r.Body or r.body
+        else 
+            print("[ZENO DEBUG] Using HttpService:GetAsync")
+            return HttpService:GetAsync(url) 
+        end
+    end)
+    print("[ZENO DEBUG] ok="..tostring(ok).." len="..tostring(res and #res or 0))
+    if not ok then print("[ZENO DEBUG] error: "..tostring(res)) end
+    return ok and res or nil
+end
+
+local function denyAccess(reason)
+    print("[ZENO DEBUG] DENY: "..tostring(reason))
+    local CoreGui
+    pcall(function() CoreGui = (gethui and gethui()) or game:GetService("CoreGui") end)
+    local parent = CoreGui
+    if not parent or not pcall(function() return parent.Name end) then
+        parent = localPlayer:WaitForChild("PlayerGui")
+        print("[ZENO DEBUG] Fallback to PlayerGui")
+    end
+    if parent:FindFirstChild("ZENO_DENIED") then parent.ZENO_DENIED:Destroy() end
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "ZENO_DENIED"
+    gui.ResetOnSpawn = false
+    gui.Parent = parent
+    
+    local card = Instance.new("Frame")
+    card.Size = UDim2.new(0, 420, 0, 190)
+    card.Position = UDim2.new(0.5, -210, 0.5, -95)
+    card.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
+    card.BorderSizePixel = 0
+    Instance.new("UICorner", card).CornerRadius = UDim.new(0, 16)
+    card.Parent = gui
+    
+    local stroke = Instance.new("UIStroke", card)
+    stroke.Color = Color3.fromRGB(255, 60, 60)
+    stroke.Thickness = 2
+    
+    local title = Instance.new("TextLabel", card)
+    title.Size = UDim2.new(1, 0, 0, 45)
+    title.BackgroundTransparency = 1
+    title.Text = "🔒 ZENO HUB"
+    title.TextColor3 = Color3.fromRGB(255, 60, 60)
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 22
+    title.Parent = card
+    
+    local msg = Instance.new("TextLabel", card)
+    msg.Size = UDim2.new(1, -30, 0, 80)
+    msg.Position = UDim2.new(0, 15, 0, 50)
+    msg.BackgroundTransparency = 1
+    msg.Text = "Vous n'avez pas accès au fichier de ZENO HUB\n\n" .. tostring(reason)
+    msg.TextColor3 = Color3.fromRGB(230, 230, 230)
+    msg.Font = Enum.Font.Gotham
+    msg.TextSize = 14
+    msg.TextWrapped = true
+    msg.Parent = card
+    
+    local inv = Instance.new("TextLabel", card)
+    inv.Size = UDim2.new(1, 0, 0, 30)
+    inv.Position = UDim2.new(0, 0, 1, -35)
+    inv.BackgroundTransparency = 1
+    inv.Text = "discord.gg/HR3kfRvsq pour acheter"
+    inv.TextColor3 = Color3.fromRGB(90, 140, 255)
+    inv.Font = Enum.Font.GothamBold
+    inv.TextSize = 13
+    inv.Parent = card
+    
+    error("[ZENO] Acces refuse: "..tostring(reason))
+end
+
+-- CHECK LICENCE
+local userKey = nil
+pcall(function()
+    if getgenv and getgenv().ZENO_KEY then userKey = getgenv().ZENO_KEY end
+    if _G.ZENO_KEY then userKey = _G.ZENO_KEY end
+end)
+
+print("[ZENO DEBUG] userKey="..tostring(userKey))
+
+if not userKey or userKey == "" then
+    denyAccess("Aucune cle fournie. Faites getgenv().ZENO_KEY = \"VOTRE_CLE\" avant le loadstring")
+    return
+end
+
+local url = FIREBASE_URL .. "licenses/" .. HttpService:UrlEncode(userKey) .. ".json"
+local body = httpRequest(url)
+
+print("[ZENO DEBUG] body="..tostring(body and body:sub(1,200) or "nil"))
+
+if not body or body == "null" then
+    denyAccess("Cle invalide: "..tostring(userKey).." (body="..tostring(body)..")")
+    return
+end
+
+local ok, data = pcall(function() return HttpService:JSONDecode(body) end)
+print("[ZENO DEBUG] JSON ok="..tostring(ok))
+if not ok or not data then
+    denyAccess("Erreur verification licence JSON")
+    return
+end
+if data.active == false then denyAccess("Cle bannie") return end
+if data.expire and data.expire < os.time() then denyAccess("Cle expiree") return end
+
+print("[ZENO] Acces autorise - chargement... data.active="..tostring(data.active))
+
+-- CHARGE LE VRAI HUB
+local hubCode = httpRequest(HUB_URL)
+print("[ZENO DEBUG] hubCode len="..tostring(hubCode and #hubCode or 0))
+if hubCode and #hubCode > 100 then
+    local f, err = loadstring(hubCode)
+    if f then
+        print("[ZENO DEBUG] loadstring OK, executing hub...")
+        f()
+    else
+        warn("[ZENO] Erreur hub: "..tostring(err))
+    end
+else
+    warn("[ZENO] Hub prive introuvable a "..tostring(HUB_URL).." len="..tostring(hubCode and #hubCode or 0))
+end
