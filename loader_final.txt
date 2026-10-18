@@ -1,52 +1,146 @@
--- ZENO LOADER FINAL FIXED
+
+print("=== ZENO DEBUG START ===")
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 local lp = Players.LocalPlayer
+print("LocalPlayer: "..tostring(lp))
 
+-- GUI qui marche partout
+local function getGuiParent()
+    local ok1, hui = pcall(function() return gethui and gethui() end)
+    if ok1 and hui then print("Using gethui"); return hui end
+    local ok2, hidden = pcall(function() return get_hidden_ui and get_hidden_ui() end)
+    if ok2 and hidden then print("Using get_hidden_ui"); return hidden end
+    local ok3, core = pcall(function() return game:GetService("CoreGui") end)
+    if ok3 and core then 
+        local ok = pcall(function() core:FindFirstChild("test") end)
+        if ok then print("Using CoreGui"); return core end
+    end
+    print("Using PlayerGui")
+    return lp:WaitForChild("PlayerGui")
+end
+
+local parent = getGuiParent()
+print("Parent: "..tostring(parent))
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "ZENO_DEBUG_"..math.random(1000,9999)
+gui.ResetOnSpawn = false
+gui.Parent = parent
+
+local lbl = Instance.new("TextLabel")
+lbl.Parent = gui
+lbl.Size = UDim2.new(0,500,0,250)
+lbl.Position = UDim2.new(0.5,-250,0.5,-125)
+lbl.BackgroundColor3 = Color3.fromRGB(0,0,0)
+lbl.BackgroundTransparency = 0.2
+lbl.TextColor3 = Color3.fromRGB(0,255,0)
+lbl.TextSize = 16
+lbl.TextWrapped = true
+lbl.Font = Enum.Font.Code
+lbl.Text = "ZENO DEBUG LANCE\nAttente cle..."
+Instance.new("UICorner", lbl).CornerRadius = UDim.new(0,8)
+
+task.wait(0.5)
+
+-- Recup key
 local key = nil
 pcall(function()
     if _G.script_key then key = _G.script_key end
     if getgenv and getgenv().script_key then key = getgenv().script_key end
     if script_key then key = script_key end
+    if _G.ZENO_KEY then key = _G.ZENO_KEY end
 end)
 
+lbl.Text = "Cle trouvee: "..tostring(key).."\nTest Firebase..."
+print("Key: "..tostring(key))
+
 if not key or key == "" then
-    warn("❌ NO KEY - Fais: script_key = \"ZENO-TEST-123\"")
+    lbl.TextColor3 = Color3.fromRGB(255,50,50)
+    lbl.Text = "❌ PAS DE CLE!\n\nFais:\nscript_key = \"ZENO-TEST-123\"\nAvant le loadstring"
+    warn("NO KEY")
     return
 end
 
 local url = "https://zeno-finder-default-rtdb.europe-west1.firebasedatabase.app/licenses/"..tostring(key)..".json"
-local ok, body = pcall(function() return game:HttpGet(url) end)
-if not ok or body == "null" or body == "" then
-    warn("❌ CLE INVALIDE: "..tostring(key))
+lbl.Text = "Firebase URL:\n"..url.."\nChargement..."
+
+local ok, body = pcall(function()
+    if http_request then
+        local res = http_request({Url=url, Method="GET"})
+        return res.Body
+    else
+        return game:HttpGet(url)
+    end
+end)
+
+if not ok then
+    lbl.TextColor3 = Color3.fromRGB(255,50,50)
+    lbl.Text = "❌ ERREUR HTTP:\n"..tostring(body):sub(1,200)
+    warn(body)
+    return
+end
+
+lbl.Text = "Reponse Firebase:\n"..tostring(body):sub(1,300)
+
+task.wait(1)
+
+if body == "null" or body == "" then
+    lbl.TextColor3 = Color3.fromRGB(255,50,50)
+    lbl.Text = "❌ CLE INVALIDE!\n"..tostring(key).."\n\nVa dans Firebase et cree:\nlicenses/"..tostring(key).."\n  active: true"
     return
 end
 
 local ok2, data = pcall(function() return HttpService:JSONDecode(body) end)
-if not ok2 or data.active == false then
-    warn("🚫 BANNED")
+if not ok2 then
+    lbl.TextColor3 = Color3.fromRGB(255,50,50)
+    lbl.Text = "❌ JSON ERROR:\n"..tostring(body):sub(1,200)
     return
 end
+
+if data.active == false then
+    lbl.TextColor3 = Color3.fromRGB(255,50,50)
+    lbl.Text = "🚫 BANNI! active=false"
+    return
+end
+
+lbl.TextColor3 = Color3.fromRGB(0,255,100)
+lbl.Text = "✅ AUTH OK!\nKey: "..tostring(key).."\nChargement HUB..."
 
 _G.ZENO_AUTH = true
 _G.ZENO_KEY_VALID = key
-getgenv().ZENO_AUTH = true
-getgenv().ZENO_KEY_VALID = key
+pcall(function() getgenv().ZENO_AUTH = true; getgenv().ZENO_KEY_VALID = key end)
 
-print("✅ AUTH OK - "..tostring(key))
+task.wait(0.8)
+gui:Destroy()
 
 local hubUrl = "https://raw.githubusercontent.com/ZENOHUBPAID/loader.lua/refs/heads/main/HUB_PRIVE_LITE.txt"
-local ok3, hubCode = pcall(function() return game:HttpGet(hubUrl) end)
+print("Loading HUB: "..hubUrl)
+
+local ok3, hubCode = pcall(function()
+    if http_request then
+        return http_request({Url=hubUrl, Method="GET"}).Body
+    else
+        return game:HttpGet(hubUrl)
+    end
+end)
+
 if not ok3 then
-    warn("Erreur HttpGet HUB: "..tostring(hubCode))
+    warn("HUB HttpGet error: "..tostring(hubCode))
     return
 end
 
--- Check if 404
-if hubCode:sub(1,3) == "404" or hubCode:find("<!DOCTYPE") or hubCode:find("404: Not Found") then
-    warn("❌ HUB 404 - Fichier HUB_PRIVE_LITE.txt introuvable sur GitHub")
+print("HUB len: "..#hubCode)
+
+if hubCode:sub(1,20):find("404") or hubCode:find("<!DOCTYPE") then
+    warn("❌ HUB 404 - fichier introuvable")
     return
 end
 
 local f, err = loadstring(hubCode)
-if f then f() else warn("Erreur HUB: "..tostring(err)) end
+if f then 
+    print("✅ Loadstring OK, execution...")
+    f() 
+else 
+    warn("❌ Loadstring error: "..tostring(err)) 
+end
