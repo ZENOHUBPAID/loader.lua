@@ -1,15 +1,52 @@
-local a=game:GetService("Players")local b=a.LocalPlayer
-local function c()local d,e=pcall(function()if gethui then return gethui()end if get_hidden_ui then return get_hidden_ui()end return game:GetService("CoreGui")end)if d and e then return e end return b:WaitForChild("PlayerGui")end
-local e=Instance.new("ScreenGui")e.Name="ZENO_"..math.random(10000,99999)e.Parent=c()
-local f=Instance.new("TextLabel",e)f.Size=UDim2.new(0,400,0,200)f.Position=UDim2.new(0.5,-200,0.5,-100)f.BackgroundColor3=Color3.fromRGB(15,15,15)f.TextColor3=Color3.fromRGB(0,255,120)f.TextWrapped=true f.Text="ZENO..."
-local g=nil pcall(function()if _G.script_key then g=_G.script_key end if getgenv and getgenv().script_key then g=getgenv().script_key end if script_key then g=script_key end end)
-if not g or g==""then f.TextColor3=Color3.fromRGB(255,60,60)f.Text="NO KEY"return end
-local h=game:GetService("HttpService")local i="https://zeno-finder-default-rtdb.europe-west1.firebasedatabase.app/licenses/"..tostring(g)..".json"
-local j,k=pcall(function()if http_request then return http_request({Url=i,Method="GET"}).Body else return game:HttpGet(i)end end)
-if not j or k=="null"then f.TextColor3=Color3.fromRGB(255,60,60)f.Text="INVALID KEY: "..tostring(g)return end
-local l,m=pcall(function()return h:JSONDecode(k)end)if not l or m.active==false then f.TextColor3=Color3.fromRGB(255,60,60)f.Text="BANNED"return end
-_G.ZENO_AUTH=true _G.ZENO_KEY_VALID=g getgenv().ZENO_AUTH=true getgenv().ZENO_KEY_VALID=g
-f.TextColor3=Color3.fromRGB(0,255,120)f.Text="OK! Loading..."task.wait(0.5)e:Destroy()
-local n="https://raw.githubusercontent.com/ZENOHUBPAID/loader.lua/refs/heads/main/HUB_PRIVE_LITE.txt"
-local o,p=pcall(function()if http_request then return http_request({Url=n,Method="GET"}).Body else return game:HttpGet(n)end end)
-if not o then warn(p)return end local q,r=loadstring(p)if q then q()else warn(r)end
+-- ZENO LOADER FINAL FIXED
+local Players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
+local lp = Players.LocalPlayer
+
+local key = nil
+pcall(function()
+    if _G.script_key then key = _G.script_key end
+    if getgenv and getgenv().script_key then key = getgenv().script_key end
+    if script_key then key = script_key end
+end)
+
+if not key or key == "" then
+    warn("❌ NO KEY - Fais: script_key = \"ZENO-TEST-123\"")
+    return
+end
+
+local url = "https://zeno-finder-default-rtdb.europe-west1.firebasedatabase.app/licenses/"..tostring(key)..".json"
+local ok, body = pcall(function() return game:HttpGet(url) end)
+if not ok or body == "null" or body == "" then
+    warn("❌ CLE INVALIDE: "..tostring(key))
+    return
+end
+
+local ok2, data = pcall(function() return HttpService:JSONDecode(body) end)
+if not ok2 or data.active == false then
+    warn("🚫 BANNED")
+    return
+end
+
+_G.ZENO_AUTH = true
+_G.ZENO_KEY_VALID = key
+getgenv().ZENO_AUTH = true
+getgenv().ZENO_KEY_VALID = key
+
+print("✅ AUTH OK - "..tostring(key))
+
+local hubUrl = "https://raw.githubusercontent.com/ZENOHUBPAID/loader.lua/refs/heads/main/HUB_PRIVE_LITE.txt"
+local ok3, hubCode = pcall(function() return game:HttpGet(hubUrl) end)
+if not ok3 then
+    warn("Erreur HttpGet HUB: "..tostring(hubCode))
+    return
+end
+
+-- Check if 404
+if hubCode:sub(1,3) == "404" or hubCode:find("<!DOCTYPE") or hubCode:find("404: Not Found") then
+    warn("❌ HUB 404 - Fichier HUB_PRIVE_LITE.txt introuvable sur GitHub")
+    return
+end
+
+local f, err = loadstring(hubCode)
+if f then f() else warn("Erreur HUB: "..tostring(err)) end
